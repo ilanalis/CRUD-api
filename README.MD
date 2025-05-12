@@ -49,3 +49,31 @@ npm run start:dev
 ```
 npm run start:prod
 ```
+
+### Using the Application
+
+The server listens on a port defined in the .env file (e.g., http://localhost:4000). You can interact with the API using tools like Postman or curl.
+
+#### Available Endpoints:
+
+- GET /api/users – Get all users
+
+- GET /api/users/:id – Get a user by ID
+
+- POST /api/users – Create a new user
+
+- PUT /api/users/:id – Update a user by ID
+
+- DELETE /api/users/:id – Delete a user by ID
+
+Request body format for POST and PUT:
+
+```
+{
+  "username": "John Doe",
+  "age": 30,
+  "hobbies": ["reading", "gaming"]
+}
+```
+
+The application stores data in memory, so data will reset after the server restarts.
