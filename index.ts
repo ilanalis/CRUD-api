@@ -23,7 +23,19 @@ const server: Server = http.createServer(function (
     req.method === RequestMethods.Get
   ) {
     const id = req.url.split("/")[3];
+    if (!isValidUUID(id)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "Invalid userId format" }));
+      return;
+    }
+
     const user = db.getUser(id);
+
+    if (!user) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "User doesn't exist" }));
+      return;
+    }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(user));
     return;
@@ -45,7 +57,19 @@ const server: Server = http.createServer(function (
       }
 
       const { username, age, hobbies } = bodyData;
+      const requiredFields = ["username", "age", "hobbies"];
 
+      const missingFields = requiredFields.filter((field) => !bodyData[field]);
+
+      if (missingFields.length > 0) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            message: `Missing required fields: ${missingFields.join(", ")}`,
+          })
+        );
+        return;
+      }
       const user = db.createUser({ username, age, hobbies });
       res.writeHead(201, { "Content-Type": "application/json" });
       res.end(JSON.stringify(user));
@@ -65,7 +89,29 @@ const server: Server = http.createServer(function (
 
     req.on("end", () => {
       let bodyData;
-      bodyData = JSON.parse(body);
+      try {
+        bodyData = JSON.parse(body);
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ message: "Invalid JSON" }));
+        return;
+      }
+
+      if (!isValidUUID(id)) {
+        console.log("not valid");
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ message: "Invalid userId format" }));
+        return;
+      }
+      const user = db.getUser(id);
+
+      if (!user) {
+        console.log("user dosnt exist");
+
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ message: "User doesn't exist" }));
+        return;
+      }
 
       const updatedUser = db.updateUser(id, bodyData);
       if (!updatedUser) return;
@@ -81,6 +127,19 @@ const server: Server = http.createServer(function (
     req.method === RequestMethods.Delete
   ) {
     const id = req.url.split("/")[3];
+
+    if (!isValidUUID(id)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "Invalid userId format" }));
+      return;
+    }
+    const user = db.getUser(id);
+
+    if (!user) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "User doesn't exist" }));
+      return;
+    }
 
     res.writeHead(204, { "Content-Type": "application/json" });
     res.end(JSON.stringify(db.deleteUser(id)));
