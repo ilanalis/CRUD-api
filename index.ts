@@ -76,6 +76,16 @@ const server: Server = http.createServer(function (
     });
     return;
   }
+  if (
+    req.url?.match(/\/api\/users\/\w+/) &&
+    req.method === RequestMethods.Delete
+  ) {
+    const id = req.url.split("/")[3];
+
+    res.writeHead(204, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(db.deleteUser(id)));
+    return;
+  }
 });
 
 server.listen(port, () => {
