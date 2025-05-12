@@ -24,9 +24,8 @@ export class DataBase {
     return newUser;
   }
 
-  updateUser(id: string, updates: User): User | undefined {
+  updateUser(id: string, updates: User): User {
     const foundUser = this.users[id];
-    if (!foundUser) return;
     const updatedUser = { ...foundUser, ...updates };
     this.users[id] = updatedUser;
     return updatedUser;

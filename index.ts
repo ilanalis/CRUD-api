@@ -2,7 +2,10 @@ import http, { IncomingMessage, Server, ServerResponse } from "http";
 import { DataBase } from "./data";
 import { RequestMethods } from "./types";
 import dotenv from "dotenv";
-import { isValidUUID } from "./utils/isValidUUID";
+import { getUserId } from "./utils/getUserId";
+import { deleteUser, getUser, postUser, putUser } from "./userController";
+import { sendResponse } from "./utils/sendResponse";
+import { HttpError } from "./httpError";
 dotenv.config();
 
 const port = process.env.PORT;
@@ -15,145 +18,81 @@ const server: Server = http.createServer(function (
 ) {
   try {
     if (req.url === "/api/users" && req.method === RequestMethods.Get) {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(db.getAllUsers()));
+      sendResponse(res, 200, db.getAllUsers());
       return;
     }
+
     if (
       req.url?.match(/^\/api\/users\/[^/]+$/) &&
       req.method === RequestMethods.Get
     ) {
-      const id = req.url.split("/")[3];
-      if (!isValidUUID(id)) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: "Invalid userId format" }));
-        return;
-      }
-
-      const user = db.getUser(id);
-
-      if (!user) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: "User doesn't exist" }));
-        return;
-      }
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(user));
+      const id = getUserId(req, res);
+      getUser(id, res, db)
+        .then((user) => {
+          sendResponse(res, 200, user);
+        })
+        .catch((error) => {
+          if (error instanceof HttpError) {
+            sendResponse(res, error.statusCode, error.message);
+          } else {
+            sendResponse(res, 500, "Internal Server Error");
+          }
+        });
       return;
     }
+
     if (req.url === "/api/users" && req.method === RequestMethods.Post) {
-      let body = "";
-      req.on("data", (chunk) => {
-        body += chunk.toString();
-      });
-
-      req.on("end", () => {
-        let bodyData;
-        try {
-          bodyData = JSON.parse(body);
-        } catch {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ message: "Invalid JSON" }));
-          return;
-        }
-
-        const { username, age, hobbies } = bodyData;
-        const requiredFields = ["username", "age", "hobbies"];
-
-        const missingFields = requiredFields.filter(
-          (field) => !bodyData[field]
-        );
-
-        if (missingFields.length > 0) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              message: `Missing required fields: ${missingFields.join(", ")}`,
-            })
-          );
-          return;
-        }
-        const user = db.createUser({ username, age, hobbies });
-        res.writeHead(201, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(user));
-      });
+      postUser(req, db)
+        .then((user) => {
+          sendResponse(res, 201, user);
+        })
+        .catch((error) => {
+          if (error instanceof HttpError) {
+            sendResponse(res, error.statusCode, error.message);
+          } else {
+            sendResponse(res, 500, "Internal Server Error");
+          }
+        });
       return;
     }
+
     if (
       req.url?.match(/\/api\/users\/\w+/) &&
       req.method === RequestMethods.Put
     ) {
-      const id = req.url.split("/")[3];
+      const id = getUserId(req, res);
+      if (!id) return;
 
-      let body = "";
-      req.on("data", (chunk) => {
-        body += chunk.toString();
-      });
-
-      req.on("end", () => {
-        let bodyData;
-        try {
-          bodyData = JSON.parse(body);
-        } catch {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ message: "Invalid JSON" }));
-          return;
-        }
-
-        if (!isValidUUID(id)) {
-          console.log("not valid");
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ message: "Invalid userId format" }));
-          return;
-        }
-        const user = db.getUser(id);
-
-        if (!user) {
-          console.log("user dosnt exist");
-
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ message: "User doesn't exist" }));
-          return;
-        }
-
-        const updatedUser = db.updateUser(id, bodyData);
-        if (!updatedUser) return;
-
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(updatedUser));
-        return;
-      });
+      putUser(req, db, id)
+        .then((user) => {
+          sendResponse(res, 200, user);
+        })
+        .catch((error) => {
+          if (error instanceof HttpError) {
+            sendResponse(res, error.statusCode, error.message);
+          } else {
+            sendResponse(res, 500, "Internal Server Error");
+          }
+        });
       return;
     }
+
     if (
       req.url?.match(/\/api\/users\/\w+/) &&
       req.method === RequestMethods.Delete
     ) {
-      const id = req.url.split("/")[3];
-
-      if (!isValidUUID(id)) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: "Invalid userId format" }));
-        return;
-      }
-      const user = db.getUser(id);
-
-      if (!user) {
-        res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ message: "User doesn't exist" }));
-        return;
-      }
-
-      res.writeHead(204, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(db.deleteUser(id)));
-      return;
+      const id = getUserId(req, res);
+      deleteUser(res, db, id);
+      return sendResponse(res, 204);
     }
     res.writeHead(400, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
   } catch (error) {
-    console.log("error", error);
-    res.writeHead(500, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Internal Server Error" }));
+    if (error instanceof HttpError) {
+      sendResponse(res, error.statusCode, error.message);
+      return;
+    }
+    sendResponse(res, 500, "Internal Server Error");
   }
 });
 
