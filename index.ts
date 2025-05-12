@@ -52,6 +52,30 @@ const server: Server = http.createServer(function (
     });
     return;
   }
+  if (
+    req.url?.match(/\/api\/users\/\w+/) &&
+    req.method === RequestMethods.Put
+  ) {
+    const id = req.url.split("/")[3];
+
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on("end", () => {
+      let bodyData;
+      bodyData = JSON.parse(body);
+
+      const updatedUser = db.updateUser(id, bodyData);
+      if (!updatedUser) return;
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(updatedUser));
+      return;
+    });
+    return;
+  }
 });
 
 server.listen(port, () => {
